@@ -61,6 +61,8 @@ jobs:
           IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kalipet-adminapp/kalipeh-wallet
         run: |
           docker build \
+            --build-arg VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }} \
+            --build-arg VITE_APP_NAME=${{ vars.VITE_APP_NAME }} \
             -t $IMAGE:${{ github.sha }} \
             -t $IMAGE:latest \
             .
