@@ -2,87 +2,64 @@ name: Build and Deploy to Cloud Run
 
 on:
   push:
-    branches: [main, develop-smstwilo]
-  pull_request:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      environment:
-        description: Target environment
-        required: false
-        default: production
-        type: choice
-        options: [production, staging]
 
 env:
   SERVICE_NAME: kalipeh-wallet
-  REGION: ${{ vars.GCP_REGION }}
-  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGION: us-central1
+  PROJECT_ID: kalipeh
 
 jobs:
-  build:
-    name: Build Docker Image
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Build image
-        run: docker build -t kalipeh-wallet:${{ github.sha }} .
-
   deploy:
-    name: Push and Deploy
+    name: Build, Push, Deploy
     runs-on: ubuntu-latest
-    needs: build
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
 
     permissions:
       contents: read
-      id-token: write  # required for Workload Identity Federation
+      id-token: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Authenticate to GCP via Workload Identity
+      # ✅ AUTH (FIXED: correct provider format)
+      - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
-          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          workload_identity_provider: "projects/525776555218/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+          service_account: "kalipeh-svc-sa@kalipeh.iam.gserviceaccount.com"
 
-      - name: Set up Cloud SDK
+      # ✅ SET PROJECT EXPLICITLY
+      - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: kalipeh
 
-      - name: Configure Docker for Artifact Registry
-        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+      # ✅ DOCKER AUTH
+      - name: Configure Docker
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
 
+      # ✅ BUILD + PUSH (FIXED REPO NAME)
       - name: Build and push image
         env:
-          IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kalipet-adminapp/kalipeh-wallet
+          IMAGE: us-central1-docker.pkg.dev/kalipeh/kalipeh-wallet/kalipeh-wallet
         run: |
           docker build \
-            --build-arg VITE_API_BASE_URL=${{ vars.VITE_API_BASE_URL }} \
-            --build-arg VITE_APP_NAME=${{ vars.VITE_APP_NAME }} \
             -t $IMAGE:${{ github.sha }} \
             -t $IMAGE:latest \
             .
+
           docker push $IMAGE:${{ github.sha }}
           docker push $IMAGE:latest
 
+      # ✅ DEPLOY
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v2
         with:
-          service: ${{ env.SERVICE_NAME }}
-          region: ${{ env.REGION }}
-          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/kalipet-adminapp/kalipeh-wallet:${{ github.sha }}
+          service: kalipeh-wallet
+          region: us-central1
+          image: us-central1-docker.pkg.dev/kalipeh/kalipeh-wallet/kalipeh-wallet:${{ github.sha }}
           flags: >-
             --allow-unauthenticated
-            --min-instances=0
-            --max-instances=10
-            --memory=512Mi
-            --cpu=1
-            --port=8080
-            --timeout=300
-          env_vars: |
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            --region=us-central1
