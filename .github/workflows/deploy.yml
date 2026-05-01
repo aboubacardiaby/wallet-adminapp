@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  SERVICE_NAME: kalipeh-wallet
+  SERVICE_NAME: wallet-adminapp
   REGION: us-central1
   PROJECT_ID: kalipeh
   IMAGE: us-central1-docker.pkg.dev/kalipeh/kalipeh-wallet/kalipeh-wallet
