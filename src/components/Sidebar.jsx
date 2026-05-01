@@ -2,9 +2,10 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, ShieldCheck, Wallet,
   Building2, Settings, LogOut, Activity, ChevronsRight,
-  TrendingUp, Percent,
+  TrendingUp, Percent, ArrowDownToLine, Store, UserCog, Landmark,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { canAccess, ROLE_LABELS, ROLE_COLORS } from '../lib/roles'
 
 const NAV = [
   { to: '/',               icon: LayoutDashboard, label: 'Dashboard'      },
@@ -13,14 +14,20 @@ const NAV = [
   { to: '/wallets',        icon: Wallet,          label: 'Wallets'        },
   { to: '/banks',          icon: Building2,       label: 'Banks'          },
   { to: '/transactions',   icon: Activity,        label: 'Transactions'   },
+  { to: '/agents',         icon: Store,           label: 'Agents'         },
   { to: '/exchange-rates', icon: TrendingUp,      label: 'Exchange Rates' },
   { to: '/fees',           icon: Percent,         label: 'Fee Rules'      },
+  { to: '/received-trans', icon: ArrowDownToLine, label: 'Received Trans'  },
   { to: '/settings',       icon: Settings,        label: 'Settings'       },
+  { to: '/ach-config',     icon: Landmark,        label: 'ACH Config'     },
+  { to: '/admin-users',    icon: UserCog,         label: 'Admin Users'    },
 ]
 
 export default function Sidebar() {
-  const { logout } = useAuth()
-  const navigate   = useNavigate()
+  const { logout, role, username } = useAuth()
+  const navigate = useNavigate()
+
+  const visibleNav = NAV.filter(item => canAccess(role, item.to))
 
   return (
     <aside className="fixed inset-y-0 left-0 w-60 bg-gray-900 flex flex-col z-30">
@@ -37,7 +44,7 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-        {NAV.map(({ to, icon: Icon, label }) => (
+        {visibleNav.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
@@ -56,8 +63,22 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Footer */}
-      <div className="px-3 py-4 border-t border-gray-800">
+      {/* Current user + sign out */}
+      <div className="px-3 py-4 border-t border-gray-800 space-y-3">
+        {/* User info */}
+        <div className="flex items-center gap-2.5 px-3">
+          <div className="w-8 h-8 bg-indigo-700 rounded-full flex items-center justify-center flex-shrink-0">
+            <span className="text-white text-xs font-bold uppercase">
+              {(username || 'A')[0]}
+            </span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white text-xs font-semibold truncate">{username || 'Admin'}</p>
+            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${ROLE_COLORS[role] ?? 'bg-gray-700 text-gray-300'}`}>
+              {ROLE_LABELS[role] ?? role}
+            </span>
+          </div>
+        </div>
         <button
           onClick={() => { logout(); navigate('/login') }}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"

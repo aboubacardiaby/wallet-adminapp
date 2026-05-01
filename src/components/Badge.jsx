@@ -22,6 +22,17 @@ const STYLES = {
   top_up:       'bg-emerald-100 text-emerald-700',
   cash_in:      'bg-teal-100 text-teal-700',
   cash_out:     'bg-orange-100 text-orange-700',
+  // received trans — delivery type
+  wave:              'bg-cyan-100 text-cyan-700',
+  agent_pickup:      'bg-amber-100 text-amber-700',
+  wallet:            'bg-purple-100 text-purple-700',
+  // received trans — status
+  ready:             'bg-green-100 text-green-700',
+  ready_for_pickup:  'bg-yellow-100 text-yellow-700',
+  wave_initiated:    'bg-cyan-100 text-cyan-700',
+  picked_up:         'bg-green-100 text-green-700',
+  // wave sub-status
+  succeeded:         'bg-green-100 text-green-700',
 }
 
 export default function Badge({ value }) {

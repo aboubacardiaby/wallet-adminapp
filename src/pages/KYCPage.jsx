@@ -202,11 +202,13 @@ function KYCDetailModal({ submission: s, onClose, onReview }) {
           <div className="grid grid-cols-3 gap-3">
             {[['ID Front', s.id_front_url], ['ID Back', s.id_back_url], ['Selfie', s.selfie_url]].map(([label, src]) => (
               <div key={label} className="rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
-                {src && src.startsWith('data:') ? (
-                  <img src={src} alt={label} className="w-full h-28 object-cover" />
+                {src ? (
+                  <a href={src} target="_blank" rel="noreferrer">
+                    <img src={src} alt={label} className="w-full h-28 object-cover hover:opacity-90 transition-opacity" />
+                  </a>
                 ) : (
                   <div className="w-full h-28 flex items-center justify-center text-gray-300 text-xs">
-                    {src ? 'Image URL' : 'Not provided'}
+                    Not provided
                   </div>
                 )}
                 <p className="text-center text-[10px] text-gray-400 py-1">{label}</p>

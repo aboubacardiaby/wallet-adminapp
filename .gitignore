@@ -64,3 +64,14 @@ playwright/.cache/
 *.pem
 *.key
 *.local
+
+# Docker
+.dockerignore
+
+# GitHub Actions / CI artifacts
+.github/workflows/*.log
+
+# Temporary / junk files
+*.ini
+tmp/
+temp/

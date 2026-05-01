@@ -18,7 +18,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const { data } = await api.post('/admin/login', form)
-      login(data.access_token)
+      login(data.access_token, data.username || form.username, data.role)
       navigate('/')
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Invalid credentials')
