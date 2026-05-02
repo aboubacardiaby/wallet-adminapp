@@ -3,8 +3,8 @@ import { toast } from 'react-hot-toast'
 import {
   Search, ChevronLeft, ChevronRight, Eye,
   Banknote, MapPin, CheckCircle, XCircle,
-  ChevronRight as ChevronRightIcon, Loader2, User,
-  AlertTriangle, Phone, Navigation,
+  Loader2, User, AlertTriangle, Phone, Navigation,
+  X, Inbox, ArrowRight,
 } from 'lucide-react'
 import api from '../api/client'
 import Badge from '../components/Badge'
@@ -15,19 +15,25 @@ import PageHeader from '../components/PageHeader'
 const TX_TYPES    = ['', 'remittance', 'send', 'cash_pickup', 'wave_transfer', 'top_up', 'cash_in', 'cash_out']
 const TX_STATUSES = ['', 'completed', 'pending', 'failed']
 
-// Statuses where cash pickup processing is still actionable
 const CASH_PICKUP_ACTIVE = new Set(['pending', 'ready_for_pickup'])
 
+function pageNums(cur, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  if (cur <= 4)          return [1, 2, 3, 4, 5, '…', total]
+  if (cur >= total - 3)  return [1, '…', total - 4, total - 3, total - 2, total - 1, total]
+  return [1, '…', cur - 1, cur, cur + 1, '…', total]
+}
+
 export default function TransactionsPage() {
-  const [rows,      setRows]      = useState([])
-  const [total,     setTotal]     = useState(0)
-  const [pages,     setPages]     = useState(1)
-  const [page,      setPage]      = useState(1)
-  const [loading,   setLoading]   = useState(true)
-  const [search,    setSearch]    = useState('')
-  const [filters,   setFilters]   = useState({ type: '', status: '' })
-  const [detail,    setDetail]    = useState(null)
-  const [processing, setProcessing] = useState(null)  // cash_pickup tx being processed
+  const [rows,       setRows]       = useState([])
+  const [total,      setTotal]      = useState(0)
+  const [pages,      setPages]      = useState(1)
+  const [page,       setPage]       = useState(1)
+  const [loading,    setLoading]    = useState(true)
+  const [search,     setSearch]     = useState('')
+  const [filters,    setFilters]    = useState({ type: '', status: '' })
+  const [detail,     setDetail]     = useState(null)
+  const [processing, setProcessing] = useState(null)
 
   const load = useCallback(async (p = page) => {
     setLoading(true)
@@ -47,94 +53,147 @@ export default function TransactionsPage() {
   useEffect(() => { setPage(1); load(1) }, [search, filters])
   useEffect(() => { load(page) }, [page])
 
-  const handleProcessed = () => {
-    setProcessing(null)
-    load(page)
-  }
+  const handleProcessed = () => { setProcessing(null); load(page) }
+  const hasFilters = search || filters.type || filters.status
+  const clearFilters = () => { setSearch(''); setFilters({ type: '', status: '' }) }
 
   return (
     <div>
       <PageHeader title="Transactions" subtitle={`${total.toLocaleString()} total`} />
 
-      <div className="flex flex-wrap gap-3 mb-4">
-        <div className="relative flex-1 min-w-52">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input className="input-field pl-9" placeholder="Search by ref, phone…"
-            value={search} onChange={e => setSearch(e.target.value)} />
+      {/* ── Filter bar ── */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-5">
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="relative flex-1 min-w-52">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-50 placeholder-gray-400"
+              placeholder="Search by ref, phone…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <select
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50 cursor-pointer"
+            value={filters.type}
+            onChange={e => setFilters(f => ({ ...f, type: e.target.value }))}>
+            {TX_TYPES.map(t => <option key={t} value={t}>{t || 'All types'}</option>)}
+          </select>
+          <select
+            className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-gray-50 cursor-pointer"
+            value={filters.status}
+            onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}>
+            {TX_STATUSES.map(s => <option key={s} value={s}>{s || 'All statuses'}</option>)}
+          </select>
+          {hasFilters && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <X size={13} /> Clear
+            </button>
+          )}
         </div>
-        <select className="input-field w-44" value={filters.type}
-          onChange={e => setFilters(f => ({ ...f, type: e.target.value }))}>
-          {TX_TYPES.map(t => <option key={t} value={t}>{t || 'All types'}</option>)}
-        </select>
-        <select className="input-field w-36" value={filters.status}
-          onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}>
-          {TX_STATUSES.map(s => <option key={s} value={s}>{s || 'All statuses'}</option>)}
-        </select>
       </div>
 
+      {/* ── Table ── */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-100">
-              <tr>
-                {['Ref', 'Type', 'From', 'To', 'Amount', 'Status', 'Date', ''].map(h => (
-                  <th key={h} className="px-4 py-3 text-left table-header">{h}</th>
-                ))}
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Transaction</th>
+                <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">From → To</th>
+                <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Amount</th>
+                <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Date</th>
+                <th className="px-4 py-3.5 text-right text-xs font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {loading ? (
-                <tr><td colSpan={8} className="py-12 text-center"><Spinner /></td></tr>
+                <tr><td colSpan={6} className="py-16 text-center"><Spinner /></td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={8} className="py-12 text-center text-gray-400">No transactions</td></tr>
+                <tr>
+                  <td colSpan={6} className="py-16">
+                    <div className="flex flex-col items-center gap-2 text-gray-400">
+                      <Inbox size={32} strokeWidth={1.5} />
+                      <p className="text-sm font-medium">No transactions found</p>
+                      {hasFilters && (
+                        <button onClick={clearFilters} className="text-xs text-indigo-500 hover:text-indigo-700 font-medium mt-1">
+                          Clear filters
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
               ) : rows.map(t => (
-                <tr key={t.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">
-                    {t.transaction_ref?.slice(0, 12)}…
+                <tr key={t.id}
+                  onClick={() => setDetail(t)}
+                  className="hover:bg-indigo-50/20 cursor-pointer group transition-colors"
+                >
+                  <td className="px-4 py-4">
+                    <span className="font-mono text-xs text-gray-500 bg-gray-50 border border-gray-100 group-hover:border-gray-200 px-2 py-0.5 rounded-md inline-block mb-1.5 transition-colors">
+                      {t.transaction_ref?.slice(0, 12)}…
+                    </span>
+                    <div><Badge value={t.type} /></div>
                   </td>
-                  <td className="px-4 py-3"><Badge value={t.type} /></td>
-                  <td className="px-4 py-3 text-xs text-gray-500">{t.from_phone || '—'}</td>
-                  <td className="px-4 py-3">
-                    <p className="text-xs text-gray-700 font-medium">{t.recipient_name || t.to_phone || '—'}</p>
-                    {t.recipient_name && <p className="text-xs text-gray-400">{t.to_phone}</p>}
+                  <td className="px-4 py-4">
+                    <div>
+                      {t.sender_name && <p className="text-xs font-medium text-gray-800">{t.sender_name}</p>}
+                      <p className="text-xs text-gray-400 font-mono">{t.from_phone || '—'}</p>
+                    </div>
+                    <div className="flex items-center gap-1 mt-1.5">
+                      <ArrowRight size={10} className="text-gray-300 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-gray-800">{t.recipient_name || t.to_phone || '—'}</p>
+                        {t.recipient_name && <p className="text-xs text-gray-400 font-mono">{t.to_phone}</p>}
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <p className="font-bold text-gray-900 text-sm">
+                  <td className="px-4 py-4">
+                    <p className="font-bold text-gray-900">
                       {Number(t.send_amount ?? t.amount).toLocaleString(undefined, { maximumFractionDigits: 2 })}
                       <span className="text-xs text-gray-400 font-normal ml-1">{t.send_currency ?? t.currency}</span>
                     </p>
                     {t.received_amount != null && t.recv_currency && t.recv_currency !== (t.send_currency ?? t.currency) && (
-                      <p className="text-xs text-gray-400">
-                        → {Number(t.received_amount).toLocaleString(undefined, { maximumFractionDigits: 2 })} {t.recv_currency}
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        ↓ {Number(t.received_amount).toLocaleString(undefined, { maximumFractionDigits: 2 })} {t.recv_currency}
                       </p>
                     )}
                   </td>
-                  <td className="px-4 py-3"><Badge value={t.status} /></td>
-                  <td className="px-4 py-3 text-xs text-gray-400">
-                    {t.created_at ? new Date(t.created_at).toLocaleDateString() : '—'}
+                  <td className="px-4 py-4"><Badge value={t.status} /></td>
+                  <td className="px-4 py-4">
+                    {t.created_at ? (
+                      <>
+                        <p className="text-xs text-gray-700 font-medium">
+                          {new Date(t.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {new Date(t.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </>
+                    ) : '—'}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1">
-                      {/* Cash pickup process button — only when actionable */}
+                  <td className="px-4 py-4" onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-1.5 justify-end">
                       {t.type === 'cash_pickup' && CASH_PICKUP_ACTIVE.has(t.status) && (
                         <button
                           onClick={() => setProcessing(t)}
-                          title="Process cash pickup"
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold transition-colors"
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold transition-colors border border-amber-100"
                         >
-                          <Banknote size={13} />
-                          Process
+                          <Banknote size={13} /> Process
                         </button>
                       )}
-                      {/* Pickup done indicator */}
                       {t.type === 'cash_pickup' && t.status === 'picked_up' && (
-                        <span className="flex items-center gap-1 px-2 py-1 rounded-lg bg-green-50 text-green-600 text-xs font-semibold">
-                          <CheckCircle size={13} />
-                          Done
+                        <span className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-green-50 text-green-600 text-xs font-semibold border border-green-100">
+                          <CheckCircle size={13} /> Done
                         </span>
                       )}
-                      <button onClick={() => setDetail(t)}
-                        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400">
+                      <button
+                        onClick={() => setDetail(t)}
+                        className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                      >
                         <Eye size={14} />
                       </button>
                     </div>
@@ -145,93 +204,132 @@ export default function TransactionsPage() {
           </table>
         </div>
 
+        {/* ── Pagination ── */}
         {pages > 1 && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-            <p className="text-xs text-gray-400">Page {page} of {pages} · {total.toLocaleString()} total</p>
-            <div className="flex gap-1">
-              <button onClick={() => setPage(p => Math.max(1, p-1))} disabled={page === 1}
-                className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30"><ChevronLeft size={14}/></button>
-              <button onClick={() => setPage(p => Math.min(pages, p+1))} disabled={page === pages}
-                className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30"><ChevronRight size={14}/></button>
+          <div className="flex items-center justify-between px-5 py-3.5 border-t border-gray-100 bg-gray-50/50">
+            <p className="text-xs text-gray-500">
+              Showing <span className="font-medium text-gray-700">{((page - 1) * 20) + 1}–{Math.min(page * 20, total)}</span> of <span className="font-medium text-gray-700">{total.toLocaleString()}</span>
+            </p>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                className="p-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-30 transition-colors text-gray-600">
+                <ChevronLeft size={14} />
+              </button>
+              {pageNums(page, pages).map((n, i) =>
+                n === '…' ? (
+                  <span key={`e${i}`} className="w-8 h-8 flex items-center justify-center text-xs text-gray-400">…</span>
+                ) : (
+                  <button key={n} onClick={() => setPage(n)}
+                    className={`w-8 h-8 text-xs rounded-lg transition-colors ${
+                      n === page ? 'bg-indigo-600 text-white font-semibold' : 'hover:bg-gray-200 text-gray-600'
+                    }`}>
+                    {n}
+                  </button>
+                )
+              )}
+              <button onClick={() => setPage(p => Math.min(pages, p + 1))} disabled={page === pages}
+                className="p-1.5 rounded-lg hover:bg-gray-200 disabled:opacity-30 transition-colors text-gray-600">
+                <ChevronRight size={14} />
+              </button>
             </div>
           </div>
         )}
       </div>
 
+      {/* ── Detail Modal ── */}
       {detail && (
         <Modal title="Transaction Detail" onClose={() => setDetail(null)} wide>
-          <div className="space-y-3 text-sm">
-            <TxField label="Reference"   value={detail.transaction_ref} mono />
-            <TxField label="Type"        value={<Badge value={detail.type} />} />
-            <TxField label="Status"      value={<Badge value={detail.status} />} />
+          <div className="space-y-4">
+            {/* Status header */}
+            <div className="flex items-center justify-between bg-gray-50 rounded-xl p-4 border border-gray-100">
+              <div className="flex items-center gap-2 flex-wrap min-w-0">
+                <Badge value={detail.type} />
+                <span className="font-mono text-xs text-gray-400 bg-white border border-gray-100 px-2 py-1 rounded-lg">
+                  {detail.transaction_ref}
+                </span>
+              </div>
+              <Badge value={detail.status} />
+            </div>
 
-            <hr className="border-gray-100" />
-            <TxField label="From"        value={detail.from_phone || '—'} />
-            <TxField label="Recipient"   value={detail.recipient_name || '—'} />
-            <TxField label="To phone"    value={detail.to_phone || '—'} />
+            <Section title="Parties">
+              <div className="grid grid-cols-2 gap-4">
+                <PartyField label="Sender" name={detail.sender_name} phone={detail.from_phone} />
+                <PartyField label="Recipient" name={detail.recipient_name} phone={detail.to_phone} />
+              </div>
+            </Section>
 
-            <hr className="border-gray-100" />
-            <TxField
-              label="You sent"
-              value={`${Number(detail.send_amount ?? detail.amount).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${detail.send_currency ?? detail.currency}`}
-              bold
-            />
-            {detail.received_amount != null && (
-              <TxField
-                label="They got"
-                value={`${Number(detail.received_amount).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${detail.recv_currency}`}
-                bold
-              />
-            )}
-            {detail.fee != null && (
-              <TxField label="Fee" value={`${Number(detail.fee).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${detail.send_currency ?? detail.currency}`} />
-            )}
-            {detail.exchange_rate != null && detail.recv_currency && detail.recv_currency !== (detail.send_currency ?? detail.currency) && (
-              <TxField label="Exchange rate" value={`1 ${detail.send_currency ?? detail.currency} = ${Number(detail.exchange_rate).toFixed(6)} ${detail.recv_currency}`} />
-            )}
+            <Section title="Financial Details">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Sent</p>
+                  <p className="text-xl font-bold text-gray-900">
+                    {Number(detail.send_amount ?? detail.amount).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    <span className="text-sm text-gray-400 font-normal ml-1">{detail.send_currency ?? detail.currency}</span>
+                  </p>
+                </div>
+                {detail.received_amount != null && (
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Received</p>
+                    <p className="text-xl font-bold text-green-700">
+                      {Number(detail.received_amount).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      <span className="text-sm text-green-500 font-normal ml-1">{detail.recv_currency}</span>
+                    </p>
+                  </div>
+                )}
+                {detail.fee != null && (
+                  <DField label="Fee" value={`${Number(detail.fee).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${detail.send_currency ?? detail.currency}`} />
+                )}
+                {detail.exchange_rate != null && detail.recv_currency && detail.recv_currency !== (detail.send_currency ?? detail.currency) && (
+                  <DField label="Rate" value={`1 ${detail.send_currency ?? detail.currency} = ${Number(detail.exchange_rate).toFixed(6)} ${detail.recv_currency}`} mono />
+                )}
+              </div>
+            </Section>
 
             {(detail.type === 'cash_pickup' || detail.pickup_code) && (
-              <>
-                <hr className="border-gray-100" />
-                <TxField label="Pickup code" value={detail.pickup_code || '—'} mono />
-              </>
-            )}
-            {(detail.type === 'wave_transfer' || detail.wave_ref) && (
-              <>
-                <hr className="border-gray-100" />
-                <TxField label="Wave ref"    value={detail.wave_ref || '—'} mono />
-                <TxField label="Wave status" value={detail.wave_status ? <Badge value={detail.wave_status} /> : '—'} />
-              </>
+              <Section title="Cash Pickup">
+                <DField label="Pickup code" value={detail.pickup_code || '—'} mono bold />
+              </Section>
             )}
 
-            <hr className="border-gray-100" />
-            <TxField label="Description" value={detail.description || '—'} />
-            <TxField label="Created"     value={detail.created_at ? new Date(detail.created_at).toLocaleString() : '—'} />
+            {(detail.type === 'wave_transfer' || detail.wave_ref) && (
+              <Section title="Wave Transfer">
+                <div className="grid grid-cols-2 gap-4">
+                  <DField label="Wave ref" value={detail.wave_ref || '—'} mono />
+                  <DField label="Wave status" value={detail.wave_status ? <Badge value={detail.wave_status} /> : '—'} />
+                </div>
+              </Section>
+            )}
+
+            <Section title="Metadata">
+              <div className="grid grid-cols-2 gap-4">
+                <DField label="Description" value={detail.description || '—'} />
+                <DField label="Created" value={detail.created_at ? new Date(detail.created_at).toLocaleString() : '—'} />
+              </div>
+            </Section>
+
             {detail.extra_data && (
-              <div className="bg-gray-50 rounded-xl p-3 mt-2">
-                <p className="text-xs font-semibold text-gray-400 mb-2">Extra data</p>
+              <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                <p className="text-xs font-semibold text-gray-400 mb-2 uppercase tracking-wider">Extra Data</p>
                 <pre className="text-xs text-gray-600 overflow-x-auto whitespace-pre-wrap">
                   {JSON.stringify(detail.extra_data, null, 2)}
                 </pre>
               </div>
             )}
 
-            {/* Open processor from detail view if applicable */}
             {detail.type === 'cash_pickup' && CASH_PICKUP_ACTIVE.has(detail.status) && (
-              <div className="pt-2">
-                <button
-                  onClick={() => { setDetail(null); setProcessing(detail) }}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold rounded-xl text-sm transition-colors"
-                >
-                  <Banknote size={15} />
-                  Open Cash Pickup Processor
-                </button>
-              </div>
+              <button
+                onClick={() => { setDetail(null); setProcessing(detail) }}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold rounded-xl text-sm transition-colors border border-amber-100"
+              >
+                <Banknote size={15} />
+                Open Cash Pickup Processor
+              </button>
             )}
           </div>
         </Modal>
       )}
 
+      {/* ── Cash Pickup Processor ── */}
       {processing && (
         <CashPickupProcessor
           tx={processing}
@@ -257,14 +355,13 @@ function stepIndex(status) {
 }
 
 function CashPickupProcessor({ tx, onClose, onDone }) {
-  const [agents,       setAgents]       = useState([])
+  const [agents,        setAgents]        = useState([])
   const [agentsLoading, setAgentsLoading] = useState(false)
   const [selectedAgent, setSelectedAgent] = useState(tx.agent_id || '')
-  const [adminNotes,   setAdminNotes]   = useState('')
-  const [saving,       setSaving]       = useState(false)
+  const [adminNotes,    setAdminNotes]    = useState('')
+  const [saving,        setSaving]        = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
 
-  // extra_data holds agent_country, pickup_code, recipient_name, etc.
   const extra       = tx.extra_data ?? {}
   const destCountry = extra.agent_country || ''
 
@@ -277,19 +374,14 @@ function CashPickupProcessor({ tx, onClose, onDone }) {
       .finally(() => setAgentsLoading(false))
   }, [destCountry])
 
-  // Pre-select existing agent if assigned
   useEffect(() => {
     if (tx.agent_id) setSelectedAgent(tx.agent_id)
   }, [tx.agent_id])
 
-  const currentStep  = stepIndex(tx.status)
-  const selectedAgentObj = agents.find(a => a.id === selectedAgent) ?? null
+  const currentStep = stepIndex(tx.status)
 
   const act = async (action) => {
-    if (action === 'assign' && !selectedAgent) {
-      toast.error('Select an agent first')
-      return
-    }
+    if (action === 'assign' && !selectedAgent) { toast.error('Select an agent first'); return }
     setSaving(true)
     try {
       await api.put(`/admin/transactions/${tx.id}/cash-pickup`, {
@@ -312,7 +404,7 @@ function CashPickupProcessor({ tx, onClose, onDone }) {
     <Modal title="Cash Pickup — Manual Processing" onClose={onClose} wide>
       <div className="space-y-5 text-sm">
 
-        {/* ── Pickup code hero ── */}
+        {/* Pickup code hero */}
         <div className="bg-amber-50 border border-amber-100 rounded-2xl px-5 py-4 flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-1">Pickup Code</p>
@@ -324,12 +416,11 @@ function CashPickupProcessor({ tx, onClose, onDone }) {
           <Banknote size={36} className="text-amber-300" />
         </div>
 
-        {/* ── Status progress ── */}
+        {/* Progress steps */}
         <div className="flex items-center gap-0">
           {STEPS.map((step, i) => {
-            const done    = i < currentStep
-            const active  = i === currentStep
-            const pending = i > currentStep
+            const done   = i < currentStep
+            const active = i === currentStep
             return (
               <div key={step.key} className="flex items-center flex-1 min-w-0">
                 <div className="flex flex-col items-center flex-shrink-0">
@@ -352,19 +443,21 @@ function CashPickupProcessor({ tx, onClose, onDone }) {
           })}
         </div>
 
-        {/* ── Transaction summary ── */}
-        <div className="grid grid-cols-2 gap-3 bg-gray-50 rounded-xl p-4">
-          <SummaryField label="Reference"  value={tx.transaction_ref?.slice(0, 20) + '…'} mono />
-          <SummaryField label="Status"     value={<Badge value={tx.status} />} />
-          <SummaryField label="Sender"     value={tx.from_phone || '—'} />
-          <SummaryField label="Recipient"  value={extra.recipient_name || tx.to_phone || '—'} />
-          <SummaryField label="Sent"       value={`${Number(tx.amount).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${extra.send_currency ?? tx.currency}`} bold />
-          {extra.received_amount != null && (
-            <SummaryField label="Payout"   value={`${Number(extra.received_amount).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${extra.recv_currency ?? tx.currency}`} bold />
-          )}
-        </div>
+        {/* Transaction summary */}
+        <Section title="Transaction Summary">
+          <div className="grid grid-cols-2 gap-3">
+            <DField label="Reference"  value={tx.transaction_ref?.slice(0, 20) + '…'} mono />
+            <DField label="Status"     value={<Badge value={tx.status} />} />
+            <PartyField label="Sender"    name={tx.sender_name}    phone={tx.from_phone} />
+            <PartyField label="Recipient" name={extra.recipient_name || tx.recipient_name} phone={tx.to_phone} />
+            <DField label="Sent"       value={`${Number(tx.amount).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${extra.send_currency ?? tx.currency}`} bold />
+            {extra.received_amount != null && (
+              <DField label="Payout"   value={`${Number(extra.received_amount).toLocaleString(undefined, { maximumFractionDigits: 2 })} ${extra.recv_currency ?? tx.currency}`} bold />
+            )}
+          </div>
+        </Section>
 
-        {/* ── Step 1: Agent assignment ── */}
+        {/* Step 1: Agent assignment */}
         {tx.status === 'pending' && (
           <section className="border border-gray-100 rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-2 mb-1">
@@ -379,8 +472,7 @@ function CashPickupProcessor({ tx, onClose, onDone }) {
 
             {agentsLoading ? (
               <div className="flex items-center gap-2 py-3 text-gray-400 text-xs">
-                <Loader2 size={14} className="animate-spin" />
-                Loading agents…
+                <Loader2 size={14} className="animate-spin" /> Loading agents…
               </div>
             ) : agents.length > 0 ? (
               <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
@@ -392,14 +484,10 @@ function CashPickupProcessor({ tx, onClose, onDone }) {
                         : 'border-gray-100 hover:border-gray-200 bg-white'
                     }`}
                   >
-                    <input
-                      type="radio"
-                      name="agent"
-                      value={agent.id}
+                    <input type="radio" name="agent" value={agent.id}
                       checked={selectedAgent === agent.id}
                       onChange={() => setSelectedAgent(agent.id)}
-                      className="mt-0.5 accent-amber-500"
-                    />
+                      className="mt-0.5 accent-amber-500" />
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-800 text-sm">{agent.business_name}</p>
                       <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -428,11 +516,10 @@ function CashPickupProcessor({ tx, onClose, onDone }) {
                 </p>
               </div>
             )}
-
           </section>
         )}
 
-        {/* ── Step 2: Currently assigned agent + confirm pickup ── */}
+        {/* Step 2: Assigned agent + confirm pickup */}
         {tx.status === 'ready_for_pickup' && (
           <section className="border border-amber-100 bg-amber-50/40 rounded-xl p-4 space-y-3">
             <div className="flex items-center gap-2 mb-1">
@@ -464,7 +551,6 @@ function CashPickupProcessor({ tx, onClose, onDone }) {
               </div>
             </div>
 
-            {/* Reassign agent */}
             {agents.length > 0 && (
               <details className="group">
                 <summary className="cursor-pointer text-xs text-indigo-600 hover:text-indigo-700 font-medium select-none">
@@ -477,8 +563,10 @@ function CashPickupProcessor({ tx, onClose, onDone }) {
                         selectedAgent === agent.id ? 'border-amber-400 bg-amber-50' : 'border-gray-100 hover:border-gray-200 bg-white'
                       }`}
                     >
-                      <input type="radio" name="agent" value={agent.id} checked={selectedAgent === agent.id}
-                        onChange={() => setSelectedAgent(agent.id)} className="mt-0.5 accent-amber-500" />
+                      <input type="radio" name="agent" value={agent.id}
+                        checked={selectedAgent === agent.id}
+                        onChange={() => setSelectedAgent(agent.id)}
+                        className="mt-0.5 accent-amber-500" />
                       <div>
                         <p className="font-semibold text-gray-800 text-sm">{agent.business_name}</p>
                         {agent.phone_number && <p className="text-xs text-gray-400">{agent.phone_number}</p>}
@@ -491,7 +579,7 @@ function CashPickupProcessor({ tx, onClose, onDone }) {
           </section>
         )}
 
-        {/* ── Admin notes (always visible while active) ── */}
+        {/* Admin notes */}
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Admin notes (optional)</label>
           <textarea
@@ -502,7 +590,7 @@ function CashPickupProcessor({ tx, onClose, onDone }) {
           />
         </div>
 
-        {/* ── Action buttons ── */}
+        {/* Action buttons */}
         <div className="space-y-2 pt-1">
           {tx.status === 'pending' && (
             <button
@@ -518,35 +606,24 @@ function CashPickupProcessor({ tx, onClose, onDone }) {
           {tx.status === 'ready_for_pickup' && (
             <>
               {selectedAgent && selectedAgent !== tx.agent_id && (
-                <button
-                  onClick={() => act('assign')}
-                  disabled={saving}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-xl text-sm transition-colors disabled:opacity-50"
-                >
+                <button onClick={() => act('assign')} disabled={saving}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold rounded-xl text-sm transition-colors disabled:opacity-50">
                   {saving ? <Loader2 size={15} className="animate-spin" /> : <MapPin size={15} />}
                   Reassign Agent
                 </button>
               )}
-              <button
-                onClick={() => act('confirm')}
-                disabled={saving}
-                className="w-full flex items-center justify-center gap-2 py-3 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold rounded-xl text-sm transition-colors"
-              >
+              <button onClick={() => act('confirm')} disabled={saving}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-semibold rounded-xl text-sm transition-colors">
                 {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle size={15} />}
                 Confirm Cash Handed to Recipient
               </button>
             </>
           )}
 
-          {/* Cancel / refund */}
           {!confirmCancel ? (
-            <button
-              onClick={() => setConfirmCancel(true)}
-              disabled={saving}
-              className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-200 hover:bg-red-50 hover:border-red-200 text-gray-500 hover:text-red-600 font-medium rounded-xl text-sm transition-colors"
-            >
-              <XCircle size={14} />
-              Cancel Transfer & Return Funds
+            <button onClick={() => setConfirmCancel(true)} disabled={saving}
+              className="w-full flex items-center justify-center gap-2 py-2.5 border border-gray-200 hover:bg-red-50 hover:border-red-200 text-gray-500 hover:text-red-600 font-medium rounded-xl text-sm transition-colors">
+              <XCircle size={14} /> Cancel Transfer & Return Funds
             </button>
           ) : (
             <div className="border-2 border-red-200 bg-red-50 rounded-xl p-3 space-y-2">
@@ -576,9 +653,20 @@ function CashPickupProcessor({ tx, onClose, onDone }) {
   )
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Shared helpers ─────────────────────────────────────────────────────────────
 
-function SummaryField({ label, value, mono, bold }) {
+function Section({ title, children }) {
+  return (
+    <div className="border border-gray-100 rounded-xl overflow-hidden">
+      <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-100">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">{title}</p>
+      </div>
+      <div className="p-4">{children}</div>
+    </div>
+  )
+}
+
+function DField({ label, value, mono, bold }) {
   return (
     <div>
       <p className="text-xs text-gray-400 mb-0.5">{label}</p>
@@ -589,13 +677,14 @@ function SummaryField({ label, value, mono, bold }) {
   )
 }
 
-function TxField({ label, value, mono, bold }) {
+function PartyField({ label, name, phone }) {
   return (
-    <div className="flex justify-between items-start gap-4">
-      <span className="text-gray-400 flex-shrink-0">{label}</span>
-      <span className={`text-right ${bold ? 'font-bold text-gray-900' : 'text-gray-700'} ${mono ? 'font-mono text-xs' : ''}`}>
-        {value}
-      </span>
+    <div>
+      <p className="text-xs text-gray-400 mb-0.5">{label}</p>
+      {name && <p className="text-sm font-semibold text-gray-900">{name}</p>}
+      <p className={`font-mono ${name ? 'text-xs text-gray-400 mt-0.5' : 'text-sm font-medium text-gray-700'}`}>
+        {phone || '—'}
+      </p>
     </div>
   )
 }

@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom'
+import { Menu, ChevronsRight } from 'lucide-react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { canAccess } from './lib/roles'
 import Sidebar from './components/Sidebar'
@@ -19,13 +21,34 @@ import AchConfigPage    from './pages/AchConfigPage'
 
 function AdminLayout() {
   const { isAuth } = useAuth()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
   if (!isAuth) return <Navigate to="/login" replace />
   return (
     <div className="flex min-h-screen bg-gray-50">
-      <Sidebar />
-      <main className="flex-1 ml-60 p-8 min-w-0">
-        <Outlet />
-      </main>
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+
+      <div className="flex-1 flex flex-col min-w-0 lg:ml-60">
+        {/* Mobile top bar */}
+        <header className="lg:hidden sticky top-0 z-10 bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 shadow-sm">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
+          >
+            <Menu size={20} />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center">
+              <ChevronsRight size={14} className="text-white" />
+            </div>
+            <p className="font-bold text-gray-900 text-sm">Kalipeh Admin</p>
+          </div>
+        </header>
+
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
+          <Outlet />
+        </main>
+      </div>
     </div>
   )
 }
