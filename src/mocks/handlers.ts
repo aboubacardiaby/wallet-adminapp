@@ -54,8 +54,8 @@ const initialDocuments: AgentDocument[] = [
 ];
 let documents = structuredClone(initialDocuments);
 const transactions:Transaction[]=[
-  {id:"tx-1",transaction_ref:"KLP-8F24A1",type:"transfer",status:"completed",from_phone:"+221773201844",to_phone:"+2203812044",sender_name:"Amadou Diallo",recipient_name:"Fatou Koné",amount:"185000.00",fee:"2775.00",total_amount:"187775.00",currency:"XOF",description:"Family support",created_at:"2026-07-29T15:42:00Z",completed_at:"2026-07-29T15:43:00Z"},
-  {id:"tx-2",transaction_ref:"KLP-3B97C2",type:"cash_pickup",status:"ready_for_pickup",from_phone:"+221771440291",to_phone:"+224622410987",sender_name:"Aïcha Ouedraogo",recipient_name:"Moussa Camara",amount:"75000.00",fee:"1125.00",total_amount:"76125.00",currency:"XOF",description:"Cash pickup",created_at:"2026-07-29T14:18:00Z"},
+  {id:"tx-1",transaction_ref:"KLP-8F24A1",type:"transfer",status:"completed",from_phone:"+221773201844",to_phone:"+2203812044",sender_name:"Amadou Diallo",sender_email:"amadou@diallo.test",recipient_name:"Fatou Koné",amount:"185000.00",fee:"2775.00",total_amount:"187775.00",currency:"XOF",description:"Family support",created_at:"2026-07-29T15:42:00Z",completed_at:"2026-07-29T15:43:00Z"},
+  {id:"tx-2",transaction_ref:"KLP-3B97C2",type:"cash_pickup",status:"ready_for_pickup",from_phone:"+221771440291",to_phone:"+224622410987",sender_name:"Aïcha Ouedraogo",sender_email:"aicha@ouedraogo.test",recipient_name:"Moussa Camara",amount:"75000.00",fee:"1125.00",total_amount:"76125.00",currency:"XOF",description:"Cash pickup",created_at:"2026-07-29T14:18:00Z"},
 ];
 const initialKyc:KycSubmission[]=[
   {id:"kyc-1",user_id:"user-1",user_name:"Fatou Koné",user_phone:"+2250758140291",full_name:"Fatou Koné",date_of_birth:"1994-05-12",nationality:"Ivorian",address:"Plateau",city:"Dakar",region:"Dakar",country:"Senegal",id_type:"passport",id_number:"PA1234567",id_expiry:"2030-05-12",id_front_url:"",id_back_url:"",selfie_url:"",status:"pending",submitted_at:"2026-07-28T10:00:00Z",updated_at:"2026-07-28T10:00:00Z"},

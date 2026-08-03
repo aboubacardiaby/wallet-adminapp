@@ -31,7 +31,7 @@ import { ResourceState } from "../../components/data-grid/ResourceState";
 import { StatusChip } from "../../components/feedback/StatusChip";
 import { formatMoney } from "../../utils/money";
 import { transactionApi } from "./api";
-import type { Transaction } from "./types";
+import type { Transaction, TransferNotifyPayload } from "./types";
 
 const mask = (value?: string | null) =>
   value ? `${value.slice(0, 4)}••••${value.slice(-2)}` : "—";
@@ -52,6 +52,24 @@ const cashPickupDetails = (transaction: Transaction) => {
     country: extraText(transaction, "agent_country") || "Not provided",
     address: extraText(transaction, "agent_address"),
     phone: extraText(transaction, "agent_phone"),
+  };
+};
+
+const buildTransferNotifyPayload = (transaction: Transaction): TransferNotifyPayload => {
+  const extra = (transaction.extra_data ?? {}) as Record<string, unknown>;
+  const asNumber = (value: unknown) => (typeof value === "number" ? value : value === undefined || value === null ? null : Number(value));
+  return {
+    recipient_type: "sender",
+    transfer_type: transaction.type,
+    transaction_ref: transaction.transaction_ref,
+    send_amount: asNumber(extra.send_amount ?? transaction.amount),
+    send_currency: (extra.send_currency as string | undefined) || transaction.currency,
+    fee: asNumber(extra.fee ?? transaction.fee),
+    received_amount: asNumber(extra.received_amount ?? null),
+    recv_currency: (extra.recv_currency as string | undefined) || transaction.currency,
+    recipient_name: transaction.recipient_name || (extra.recipient_name as string | undefined) || null,
+    exchange_rate: asNumber(extra.exchange_rate ?? null),
+    pickup_code: (extra.pickup_code as string | undefined) || null,
   };
 };
 
@@ -96,7 +114,18 @@ export function TransactionListPage() {
         admin_notes: adminNotes.trim() || undefined,
       }),
     onSuccess: async (result) => {
-      setActionMessage(result.message);
+      if (pickupAction === "confirm" && result.transaction) {
+        try {
+          const notify = await transactionApi.sendTransferNotification(
+            buildTransferNotifyPayload(result.transaction),
+          );
+          setActionMessage(`${result.message} ${notify.message || "Receipt emailed to sender."}`);
+        } catch {
+          setActionMessage(result.message);
+        }
+      } else {
+        setActionMessage(result.message);
+      }
       setPickupAction(null);
       setPickupCode("");
       setAdminNotes("");
@@ -327,6 +356,7 @@ export function TransactionListPage() {
                 ],
                 ["Status", selected.status],
                 ["Sender", selected.sender_name || mask(selected.from_phone)],
+                ["Sender email", selected.sender_email || "Not provided"],
                 [
                   "Recipient",
                   selected.recipient_name || mask(selected.to_phone),
