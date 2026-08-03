@@ -6,7 +6,7 @@ const schema = z.object({
   VITE_AUTHORITY_URL: z.string().default(""),
   VITE_AUTH_CLIENT_ID: z.string().default(""),
   VITE_AUTH_REDIRECT_URI: z.string().url().default("http://localhost:5173/auth/callback"),
-  VITE_ENABLE_API_MOCKS: z.enum(["true", "false"]).default("true"),
+  VITE_ENABLE_API_MOCKS: z.enum(["true", "false"]).default("false"),
   VITE_DEFAULT_PAGE_SIZE: z.coerce.number().int().positive().default(25),
 });
 
