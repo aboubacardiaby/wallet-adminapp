@@ -9,7 +9,7 @@ async function prepare() {
     const registrations = await navigator.serviceWorker.getRegistrations();
     await Promise.all(registrations.map((r) => r.unregister()));
   }
-  if (env?.enableApiMocks && "serviceWorker" in navigator) {
+  if (import.meta.env.DEV && env?.enableApiMocks && "serviceWorker" in navigator) {
     const { worker } = await import("./mocks/browser");
     await worker.start({ onUnhandledRequest: "bypass" });
   }
