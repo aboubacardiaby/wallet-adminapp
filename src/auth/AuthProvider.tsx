@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { createContext, useCallback, useContext, type PropsWithChildren } from "react";
+import { createContext, useCallback, useContext, useEffect, type PropsWithChildren } from "react";
 import { apiRequest, setAccessToken } from "../api/httpClient";
 import { currentUserSchema, type CurrentUser } from "../api/contracts";
 import { env } from "../config/env";
@@ -30,19 +30,38 @@ export function AuthProvider({ children }: PropsWithChildren) {
       await apiRequest({ url: "/auth/login", method: "POST", data: credentials });
       user = currentUserSchema.parse(await apiRequest({ url: "/auth/me" }));
     } else {
-      const response = await apiRequest<{ access_token: string; role: string; username: string }>({ url: "/admin/login", method: "POST", data: credentials });
-      setAccessToken(response.access_token);
-      const roleMap: Record<string, CurrentUser["role"]> = { super_admin: "SUPER_ADMINISTRATOR", manager: "COUNTRY_MANAGER", compliance: "COMPLIANCE_OFFICER", agent_supervisor: "AGENT_OPERATIONS", viewer: "AUDITOR" };
+      const response = await apiRequest<{ access_token?: string; token?: string; role?: string; username?: string; user?: { role?: string; username?: string } }>({ url: "/admin/login", method: "POST", data: credentials });
+      const accessToken = response.access_token || response.token;
+      if (!accessToken) throw new Error("Login response did not include an access token.");
+      setAccessToken(accessToken);
+      const responseRole = response.role || response.user?.role || "";
+      const responseUsername = response.username || response.user?.username || credentials.username;
+      const roleMap: Record<string, CurrentUser["role"]> = { super_admin: "SUPER_ADMINISTRATOR", superadmin: "SUPER_ADMINISTRATOR", admin: "SUPER_ADMINISTRATOR", manager: "COUNTRY_MANAGER", compliance: "COMPLIANCE_OFFICER", agent_supervisor: "AGENT_OPERATIONS", viewer: "AUDITOR" };
       const limited: Record<string, Permission[]> = { compliance: ["dashboard.view", "agents.view", "documents.review", "compliance.view", "compliance.decide", "transactions.view"], viewer: ["dashboard.view", "countries.view", "cities.view", "corridors.view", "agents.view", "transactions.view", "audit.view"] };
-      user = { id: response.username, displayName: response.username, email: `${response.username}@admin.local`, role: roleMap[response.role] || "SUPPORT_OFFICER", permissions: response.role === "super_admin" ? [...permissionCodes] : (limited[response.role] || ["dashboard.view", "transactions.view"]), scope: { countryIds: [], cityIds: [] } };
+      const role = roleMap[responseRole] || "SUPPORT_OFFICER";
+      user = { id: responseUsername, displayName: responseUsername, email: `${responseUsername}@admin.local`, role, permissions: role === "SUPER_ADMINISTRATOR" ? [...permissionCodes] : (limited[responseRole] || ["dashboard.view", "transactions.view"]), scope: { countryIds: [], cityIds: [] } };
     }
     queryClient.setQueryData(["auth", "me"], user);
+    if (typeof localStorage !== "undefined") localStorage.setItem("user", JSON.stringify(user));
   }, [queryClient]);
+
+  useEffect(() => {
+    if (typeof localStorage === "undefined") return;
+    const stored = localStorage.getItem("user");
+    if (!stored || me.data) return;
+    try {
+      const user = currentUserSchema.parse(JSON.parse(stored));
+      queryClient.setQueryData(["auth", "me"], user);
+    } catch {
+      localStorage.removeItem("user");
+    }
+  }, [queryClient, me.data]);
 
   const logout = useCallback(async () => {
     await apiRequest({ url: "/auth/logout", method: "POST" }).catch(() => undefined);
     setAccessToken(null);
     queryClient.removeQueries({ queryKey: ["auth", "me"] });
+    if (typeof localStorage !== "undefined") localStorage.removeItem("user");
   }, [queryClient]);
 
   return (

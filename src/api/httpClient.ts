@@ -9,7 +9,16 @@ const client = axios.create({
   headers: { Accept: "application/json" },
 });
 let accessToken: string | null = null;
-export function setAccessToken(token: string | null) { accessToken = token; }
+if (typeof localStorage !== "undefined") {
+  accessToken = localStorage.getItem("accessToken");
+}
+export function setAccessToken(token: string | null) {
+  accessToken = token;
+  if (typeof localStorage !== "undefined") {
+    if (token) localStorage.setItem("accessToken", token);
+    else localStorage.removeItem("accessToken");
+  }
+}
 
 client.interceptors.request.use((request) => {
   request.headers["X-Correlation-ID"] =
