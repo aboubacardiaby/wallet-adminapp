@@ -81,10 +81,20 @@ const problem = (detail: string, errors?: Record<string,string[]>) => HttpRespon
 
 export const handlers = [
   http.get(url("/auth/me"), () => currentRole ? HttpResponse.json(mockUsers[currentRole]) : HttpResponse.json({ title:"Unauthorized",status:401,detail:"Sign in is required.",traceId:"mock-auth-401" }, { status:401 })),
-  http.post(url("/auth/mock-login"), async ({ request }) => {
-    const body = await request.json() as { role?: keyof typeof mockUsers };
-    if (!body.role || !mockUsers[body.role]) return HttpResponse.json({ title:"Invalid mock identity",status:400,detail:"Select a supported role.",traceId:"mock-login-400" }, { status:400 });
-    currentRole = body.role;
+  http.post(url("/auth/login"), async ({ request }) => {
+    const body = await request.json() as { username?: string; password?: string };
+    const roleMap: Record<string, keyof typeof mockUsers> = {
+      superadmin: "SUPER_ADMINISTRATOR",
+      admin: "SUPER_ADMINISTRATOR",
+      manager: "COUNTRY_MANAGER",
+      compliance: "COMPLIANCE_OFFICER",
+      finance: "FINANCE_OFFICER",
+      auditor: "AUDITOR",
+    };
+    const normalized = body.username?.trim().toLowerCase() || "";
+    const role = roleMap[normalized];
+    if (!role || !body.password?.trim()) return HttpResponse.json({ title:"Invalid credentials",status:400,detail:"Enter a valid username and password. Try superadmin / superadmin.",traceId:"mock-login-400" }, { status:400 });
+    currentRole = role;
     return HttpResponse.json({ authenticated:true });
   }),
   http.post(url("/auth/logout"), () => { currentRole = null; return new HttpResponse(null, { status:204 }); }),
