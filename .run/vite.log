@@ -1,0 +1,16 @@
+
+  [32m[1mVITE[22m v6.4.3[39m  [2mready in [0m[1m781[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2m7:10:16 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/mocks/handlers.ts[22m
+[2m7:10:36 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx[22m
+[2m7:10:40 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/components/layout/AppShell.tsx[22m
+[2m7:11:01 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/features/dashboard/DashboardPage.tsx[22m
+[2m7:15:09 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/features/geography/CityListPage.tsx, /src/features/corridors/CorridorDetailPage.tsx, /src/features/geography/CountryListPage.tsx, /src/features/corridors/CorridorListPage.tsx, /src/features/geography/RegionListPage.tsx, /src/features/geography/CountryDetailPage.tsx, /src/features/geography/CountryFormPage.tsx, /src/features/geography/CityFormPage.tsx, /src/features/corridors/CorridorFormPage.tsx, /src/auth/AuthProvider.tsx, /src/features/kyc/KycPage.tsx, /src/features/transactions/TransactionListPage.tsx, /src/features/dashboard/DashboardPage.tsx, /src/features/settings/SettingsPage.tsx[22m
+[2m7:15:14 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/auth/AuthProvider.tsx[22m
+[2m7:15:33 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/features/auth/LoginPage.tsx[22m
+[2m7:17:54 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/auth/AuthProvider.tsx[22m Could not Fast Refresh ("useAuth" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+[2m7:17:54 PM[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/auth/Can.tsx, /src/features/dashboard/DashboardPage.tsx, /src/app/providers.tsx, /src/auth/RequireAuth.tsx, /src/auth/RequirePermission.tsx, /src/components/layout/AppShell.tsx, /src/features/auth/LoginPage.tsx, /src/features/kyc/KycPage.tsx[22m
+[2m7:22:12 PM[22m [36m[1m[vite][22m[39m [32m.env changed, restarting server...[39m
+[2m7:22:13 PM[22m [36m[1m[vite][22m[39m server restarted.
